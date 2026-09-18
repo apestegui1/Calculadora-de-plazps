@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora de Plazos - Misiones</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 flex items-center justify-center font-sans">
+
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-md my-6 border border-slate-200">
+    
+    <!-- ENCABEZADO CON TU LOGO LOCAL -->
+    <div class="flex flex-col items-center mb-5">
+      <img src="logo.png" alt="Logo Poder Judicial Misiones" class="h-16 w-auto object-contain mb-2">
+      <h1 class="text-xl font-bold text-slate-800 mb-0.5 text-center">Calculadora de Plazos</h1>
+      <p class="text-xs font-medium text-slate-500 text-center">Poder Judicial de Misiones</p>
+    </div>
+    
+    <!-- Campo: Fecha de Notificación -->
+    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Fecha de Notificaci&oacute;n</label>
+    <input type="date" id="fechaNotificacion" class="w-full border border-slate-300 rounded-lg p-2.5 mb-4 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+
+    <!-- Campo: Plazo (días) -->
+    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Plazo (d&iacute;as)</label>
+    <input type="number" id="diasPlazo" value="5" min="1" class="w-full border border-slate-300 rounded-lg p-2.5 mb-4 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+
+    <!-- Campo: Tipo de Plazo -->
+    <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Tipo de C&oacute;mputo</label>
+    <select id="tipoPlazo" class="w-full border border-slate-300 rounded-lg p-2.5 mb-5 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <option value="habiles">D&iacute;as H&aacute;biles Judiciales</option>
+      <option value="corridos">D&iacute;as Corridos</option>
+    </select>
+
+    <!-- Botón de Cálculo -->
+    <button onclick="calcularVencimiento()" class="w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition shadow-md active:scale-95">
+      Calcular Vencimiento
+    </button>
+
+    <!-- Panel de Resultados -->
+    <div id="resultado" class="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200 hidden space-y-3">
+      <p class="font-bold text-lg text-slate-900 border-b border-slate-200 pb-2" id="txtVencimiento"></p>
+      <p class="text-xs font-semibold text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200" id="txtGracia"></p>
+      <div class="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200 shadow-sm hidden" id="txtInhabiles"></div>
+    </div>
+
+    <!-- Menú de Días Inhábiles -->
+    <div class="mt-6 pt-4 border-t border-slate-200">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Calendario Inh&aacute;bil</span>
+        <button onclick="toggleMenuInhabiles()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
+          ?? Gestionar D&iacute;as
+        </button>
+      </div>
+
+      <!-- Menú Desplegable -->
+      <div id="menuInhabiles" class="hidden space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+        <div class="space-y-2">
+          <input type="date" id="nuevaFechaInhabil" class="w-full border border-slate-300 rounded-md p-2 text-xs">
+          <input type="text" id="nuevoMotivoInhabil" placeholder="Motivo (ej: Feria, Asueto STJ)" class="w-full border border-slate-300 rounded-md p-2 text-xs">
+          <button onclick="agregarInhabil()" class="w-full bg-emerald-600 text-white text-xs font-semibold py-2 rounded-md hover:bg-emerald-700 transition">
+            + Agregar D&iacute;a Inh&aacute;bil
+          </button>
+        </div>
+
+        <p class="text-[10px] text-slate-400">S&aacute;bados y domingos no requieren cargarse manualmente.</p>
+
+        <ul id="listaInhabiles" class="space-y-1.5 text-xs text-slate-700 max-h-48 overflow-y-auto pr-1">
+          <!-- Lista generada por JS -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
