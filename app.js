@@ -160,7 +160,6 @@ function renderizarGuardados() {
       <td class="p-2.5">${item.fechaNotif}</td>
       <td class="p-2.5">${item.dias}</td>
       <td class="p-2.5 font-bold text-blue-700">${item.vencimiento}</td>
-      <td class="p-2.5 text-amber-700">${item.gracia}</td>
       <td class="p-2.5 text-center">
         <button onclick="eliminarRegistro(${item.id})" class="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded bg-rose-50 hover:bg-rose-100">
           ✕
