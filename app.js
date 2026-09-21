@@ -10,11 +10,19 @@ let registrosGuardados = JSON.parse(localStorage.getItem("registros_plazos_misio
 // --- FUNCIONES DE CÁLCULO DE VENCIMIENTO ---
 function esFinDeSemana(fecha) {
   const dia = fecha.getDay();
-  return dia === 5 || dia === 6; // En JS: 5 = Sábado (con UTC), 6 = Domingo
+  return dia === 0 || dia === 6; // 0 = Domingo, 6 = Sábado
 }
 
 function esInhabil(fechaISO) {
   return inhábilesPersonalizados.includes(fechaISO);
+}
+
+// Función auxiliar para obtener formato YYYY-MM-DD sin desfasaje por zona horaria/UTC
+function obtenerFechaISO(fecha) {
+  const anio = fecha.getFullYear();
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
 }
 
 function calcularVencimiento() {
@@ -39,8 +47,8 @@ function calcularVencimiento() {
   fechaActual.setDate(fechaActual.getDate() + 1);
 
   while (diasContados < diasPlazo) {
-    const isoFecha = fechaActual.toISOString().split("T")[0];
-    const esFinde = fechaActual.getDay() === 0 || fechaActual.getDay() === 6;
+    const isoFecha = obtenerFechaISO(fechaActual);
+    const esFinde = esFinDeSemana(fechaActual);
     const esFeriado = esInhabil(isoFecha);
 
     if (tipoPlazo === "habiles") {
@@ -65,10 +73,10 @@ function calcularVencimiento() {
 
   // Si el día de vencimiento de un plazo corrido cae en día inhábil, se prorroga al siguiente día hábil
   if (tipoPlazo === "corridos") {
-    let isoFecha = fechaActual.toISOString().split("T")[0];
-    while (fechaActual.getDay() === 0 || fechaActual.getDay() === 6 || esInhabil(isoFecha)) {
+    let isoFecha = obtenerFechaISO(fechaActual);
+    while (esFinDeSemana(fechaActual) || esInhabil(isoFecha)) {
       fechaActual.setDate(fechaActual.getDate() + 1);
-      isoFecha = fechaActual.toISOString().split("T")[0];
+      isoFecha = obtenerFechaISO(fechaActual);
     }
   }
 
@@ -76,20 +84,8 @@ function calcularVencimiento() {
   const opcionesFecha = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   const strVencimiento = fechaActual.toLocaleDateString('es-AR', opcionesFecha);
 
-  // Calcular Plazo de Gracia (Primeras 2 horas del día hábil posterior)
-  let fechaGracia = new Date(fechaActual);
-  fechaGracia.setDate(fechaGracia.getDate() + 1);
-  let isoGracia = fechaGracia.toISOString().split("T")[0];
-  
-  while (fechaGracia.getDay() === 0 || fechaGracia.getDay() === 6 || esInhabil(isoGracia)) {
-    fechaGracia.setDate(fechaGracia.getDate() + 1);
-    isoGracia = fechaGracia.toISOString().split("T")[0];
-  }
-  const strGracia = fechaGracia.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'numeric' });
-
   // Mostrar resultados en pantalla
   document.getElementById("txtVencimiento").innerText = `Vence: ${strVencimiento}`;
-  document.getElementById("txtGracia").innerText = `⏰ Plazo de gracia (2 hs): ${strGracia} (primeras 2 hs de despacho)`;
   document.getElementById("resultado").classList.remove("hidden");
 
   // Mostrar detalle de días no contados
@@ -101,16 +97,67 @@ function calcularVencimiento() {
     divInhabiles.classList.add("hidden");
   }
 
-  // Guardar estado para el botón de guardar
+  // Guardar estado para la lista de guardados y funciones de agendado
   ultCalculo = {
     persona: persona || "Sin especificar",
     fechaNotif: `${partes[2]}/${partes[1]}/${partes[0]}`,
     dias: `${diasPlazo} (${tipoPlazo === 'habiles' ? 'Hábiles' : 'Corridos'})`,
     vencimiento: strVencimiento,
-    gracia: strGracia
+    fechaObjeto: new Date(fechaActual)
   };
 
   document.getElementById("btnGuardar").classList.remove("hidden");
+}
+
+// --- FUNCIONES DE AGENDADO EN CALENDARIO ---
+function agendarGoogleCalendar() {
+  if (!ultCalculo || !ultCalculo.fechaObjeto) {
+    alert("Primero realizá un cálculo de vencimiento.");
+    return;
+  }
+
+  const isoFecha = obtenerFechaISO(ultCalculo.fechaObjeto).replace(/-/g, '');
+  const titulo = `VENCIMIENTO: ${ultCalculo.persona}`;
+  const detalles = `Vencimiento procesal de plazo (${ultCalculo.dias}). Notificado el ${ultCalculo.fechaNotif}. Calculado con la Calculadora de Plazos - Poder Judicial de Misiones.`;
+
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+    `&text=${encodeURIComponent(titulo)}` +
+    `&dates=${isoFecha}/${isoFecha}` +
+    `&details=${encodeURIComponent(detalles)}`;
+
+  window.open(url, '_blank');
+}
+
+function descargarICS() {
+  if (!ultCalculo || !ultCalculo.fechaObjeto) {
+    alert("Primero realizá un cálculo de vencimiento.");
+    return;
+  }
+
+  const isoFecha = obtenerFechaISO(ultCalculo.fechaObjeto).replace(/-/g, '');
+  const titulo = `VENCIMIENTO: ${ultCalculo.persona}`;
+  const detalles = `Vencimiento procesal de plazo (${ultCalculo.dias}). Notificado el ${ultCalculo.fechaNotif}. Calculado con la Calculadora de Plazos - Poder Judicial de Misiones.`;
+
+  const contenidoICS = 
+`BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Poder Judicial Misiones//Calculadora Plazos//ES
+BEGIN:VEVENT
+SUMMARY:${titulo}
+DESCRIPTION:${detalles}
+DTSTART;VALUE=DATE:${isoFecha}
+DTEND;VALUE=DATE:${isoFecha}
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR`;
+
+  const blob = new Blob([contenidoICS], { type: 'text/calendar;charset=utf-8' });
+  const enlace = document.createElement('a');
+  enlace.href = window.URL.createObjectURL(blob);
+  enlace.download = `Vencimiento_${ultCalculo.persona.replace(/[^a-zA-Z0-9]/g, '_')}_${isoFecha}.ics`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  document.body.removeChild(enlace);
 }
 
 // --- GESTIÓN DE REGISTROS GUARDADOS ---
@@ -119,7 +166,10 @@ function guardarRegistro() {
 
   registrosGuardados.push({
     id: Date.now(),
-    ...ultCalculo
+    persona: ultCalculo.persona,
+    fechaNotif: ultCalculo.fechaNotif,
+    dias: ultCalculo.dias,
+    vencimiento: ultCalculo.vencimiento
   });
 
   localStorage.setItem("registros_plazos_misiones", JSON.stringify(registrosGuardados));
@@ -148,7 +198,7 @@ function renderizarGuardados() {
   );
 
   if (filtrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">No hay registros guardados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">No hay registros guardados.</td></tr>`;
     return;
   }
 
@@ -161,7 +211,7 @@ function renderizarGuardados() {
       <td class="p-2.5">${item.dias}</td>
       <td class="p-2.5 font-bold text-blue-700">${item.vencimiento}</td>
       <td class="p-2.5 text-center">
-        <button onclick="eliminarRegistro(${item.id})" class="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded bg-rose-50 hover:bg-rose-100">
+        <button onclick="eliminarRegistro(${item.id})" class="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded bg-rose-50 hover:bg-rose-100" title="Eliminar registro">
           ✕
         </button>
       </td>
