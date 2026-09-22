@@ -89,24 +89,32 @@ function calcularVencimiento() {
 
   // Mostrar detalle de días no contados
   const divInhabiles = document.getElementById("txtInhabiles");
-  if (inhábilesEncontrados.length > 0) {
-    divInhabiles.innerHTML = `<strong>Días no contados/intermedios:</strong><br>` + inhábilesEncontrados.slice(0, 5).join("<br>") + (inhábilesEncontrados.length > 5 ? `<br>...y ${inhábilesEncontrados.length - 5} más.` : '');
-    divInhabiles.classList.remove("hidden");
-  } else {
-    divInhabiles.classList.add("hidden");
+  if (divInhabiles) {
+    if (inhábilesEncontrados.length > 0) {
+      divInhabiles.innerHTML = `<strong>Días no contados/intermedios:</strong><br>` + inhábilesEncontrados.slice(0, 5).join("<br>") + (inhábilesEncontrados.length > 5 ? `<br>...y ${inhábilesEncontrados.length - 5} más.` : '');
+      divInhabiles.classList.remove("hidden");
+    } else {
+      divInhabiles.classList.add("hidden");
+    }
   }
 
-  // Guardar estado para el botón de guardar (guardamos fechaISO de vencimiento para comparar colores)
+  // Guardar la fecha exacta de vencimiento para comparar correctamente
+  const ano = fechaActual.getFullYear();
+  const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
+  const dia = String(fechaActual.getDate()).padStart(2, '0');
+  const fechaVencISO = `${ano}-${mes}-${dia}`;
+
   ultCalculo = {
     persona: persona || "Sin especificar",
     fechaNotif: `${partes[2]}/${partes[1]}/${partes[0]}`,
     dias: `${diasPlazo} (${tipoPlazo === 'habiles' ? 'Hábiles' : 'Corridos'})`,
     vencimiento: strVencimiento,
-    fechaVencimientoISO: fechaActual.toISOString().split("T")[0],
+    fechaVencimientoISO: fechaVencISO,
     gracia: strGracia
   };
 
-  document.getElementById("btnGuardar").classList.remove("hidden");
+  const btnGuardar = document.getElementById("btnGuardar");
+  if (btnGuardar) btnGuardar.classList.remove("hidden");
 }
 
 // --- GESTIÓN Y RENDERIZADO DE REGISTROS GUARDADOS ---
@@ -120,7 +128,9 @@ function guardarRegistro() {
 
   localStorage.setItem("registros_plazos_misiones", JSON.stringify(registrosGuardados));
   renderizarGuardados();
-  document.getElementById("btnGuardar").classList.add("hidden");
+  
+  const btnGuardar = document.getElementById("btnGuardar");
+  if (btnGuardar) btnGuardar.classList.add("hidden");
 }
 
 function eliminarRegistro(id) {
@@ -131,7 +141,7 @@ function eliminarRegistro(id) {
   }
 }
 
-// Función auxiliar para determinar la clase del color según los días faltantes
+// Determinar el estilo según la diferencia de días
 function obtenerEstiloVencimiento(fechaVencISO) {
   if (!fechaVencISO) {
     return "bg-slate-100 text-slate-800 border-slate-300";
@@ -141,10 +151,14 @@ function obtenerEstiloVencimiento(fechaVencISO) {
   hoy.setHours(0, 0, 0, 0);
 
   const partes = fechaVencISO.split("-");
-  const venc = new Date(partes[0], partes[1] - 1, partes[2]);
+  if (partes.length !== 3) {
+    return "bg-slate-100 text-slate-800 border-slate-300";
+  }
+
+  const venc = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
   venc.setHours(0, 0, 0, 0);
 
-  const diferenciaMs = venc - hoy;
+  const diferenciaMs = venc.getTime() - hoy.getTime();
   const diasRestantes = Math.ceil(diferenciaMs / (1000 * 60 * 60 * 24));
 
   if (diasRestantes < 5) {
@@ -172,7 +186,7 @@ function renderizarGuardados() {
   );
 
   if (filtrados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">No hay registros guardados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">No hay registros guardados.</td></tr>`;
     return;
   }
 
@@ -190,9 +204,8 @@ function renderizarGuardados() {
           ${item.vencimiento}
         </span>
       </td>
-      <td class="p-2.5 text-amber-800">${item.gracia}</td>
       <td class="p-2.5 text-center">
-        <button onclick="eliminarRegistro(${item.id})" class="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded bg-rose-50 hover:bg-rose-100">
+        <button onclick="eliminarRegistro(${item.id})" class="text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded bg-rose-50 hover:bg-rose-100" title="Eliminar">
           ✕
         </button>
       </td>
@@ -204,8 +217,10 @@ function renderizarGuardados() {
 // --- GESTIÓN DE CALENDARIO INHÁBIL ---
 function toggleMenuInhabiles() {
   const menu = document.getElementById("menuInhabiles");
-  menu.classList.toggle("hidden");
-  renderListaInhabiles();
+  if (menu) {
+    menu.classList.toggle("hidden");
+    renderListaInhabiles();
+  }
 }
 
 function agregarInhabil() {
@@ -245,7 +260,7 @@ function renderListaInhabiles() {
   });
 }
 
-// --- REGISTRO DE PWA Y CARGA INICIAL ---
+// --- INICIALIZACIÓN ---
 document.addEventListener("DOMContentLoaded", () => {
   renderizarGuardados();
 });
