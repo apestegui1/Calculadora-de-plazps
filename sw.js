@@ -1,4 +1,4 @@
-const CACHE_NAME = "plazos-misiones-v1";
+const CACHE_NAME = "plazos-misiones-v4";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -8,7 +8,7 @@ const ASSETS_TO_CACHE = [
   "https://cdn.tailwindcss.com"
 ];
 
-// Instalación: Guarda los archivos en la caché del navegador
+// InstalaciÃ³n: Guarda los archivos en la cachÃ© del navegador
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -18,7 +18,7 @@ self.addEventListener("install", (e) => {
   self.skipWaiting();
 });
 
-// Activación: Limpia cachés antiguas
+// ActivaciÃ³n: Limpia cachÃ©s antiguas
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -34,7 +34,7 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
-// Intercepción de solicitudes: Carga desde caché si no hay conexión
+// IntercepciÃ³n de solicitudes: Carga desde cachÃ© si no hay conexiÃ³n
 self.addEventListener("fetch", (e) => {
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
