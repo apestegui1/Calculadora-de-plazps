@@ -1,4 +1,4 @@
-﻿// --- CONFIGURACIÓN E INHÁBILES ---
+﻿// --- BASE DE DATOS Y CONFIGURACIÓN INICIAL ---
 let inhábilesPersonalizados = JSON.parse(localStorage.getItem("inhabiles_misiones")) || [
   "2026-01-01", "2026-01-06", "2026-03-24", "2026-04-02", "2026-05-01", 
   "2026-05-25", "2026-06-20", "2026-07-09", "2026-11-20", "2026-12-25"
@@ -7,11 +7,12 @@ let inhábilesPersonalizados = JSON.parse(localStorage.getItem("inhabiles_mision
 let ultCalculo = null;
 let registrosGuardados = JSON.parse(localStorage.getItem("registros_plazos_misiones")) || [];
 
+// --- FUNCIONES DE VERIFICACIÓN DE DÍAS INHÁBILES ---
 function esInhabil(fechaISO) {
   return inhábilesPersonalizados.includes(fechaISO);
 }
 
-// --- CÁLCULO PRINCIPAL ---
+// --- CÁLCULO PRINCIPAL DE VENCIMIENTO ---
 function calcularVencimiento() {
   const inputFecha = document.getElementById("fechaNotificacion").value;
   const diasPlazo = parseInt(document.getElementById("diasPlazo").value);
@@ -24,57 +25,37 @@ function calcularVencimiento() {
   }
 
   const partes = inputFecha.split("-");
+  // Cómputo inicia el día hábil posterior a la notificación (Art. 156 CPCCCyF)
   let fechaActual = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
-
-  let diasContados = 0;
-  let inhábilesEncontrados = [];
-
-  // El plazo comienza el día hábil siguiente
   fechaActual.setDate(fechaActual.getDate() + 1);
 
-  while (diasContados < diasPlazo) {
-    const ano = fechaActual.getFullYear();
-    const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
-    const dia = String(fechaActual.getDate()).padStart(2, '0');
-    const isoFecha = `${ano}-${mes}-${dia}`;
+  let inhábilesEncontrados = [];
 
-    const esFinde = fechaActual.getDay() === 0 || fechaActual.getDay() === 6;
-    const esFeriado = esInhabil(isoFecha);
+  if (tipoPlazo === "habiles") {
+    let diasContados = 0;
+    while (diasContados < diasPlazo) {
+      const ano = fechaActual.getFullYear();
+      const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
+      const dia = String(fechaActual.getDate()).padStart(2, '0');
+      const isoFecha = `${ano}-${mes}-${dia}`;
 
-    if (tipoPlazo === "habiles") {
+      const esFinde = fechaActual.getDay() === 0 || fechaActual.getDay() === 6;
+      const esFeriado = esInhabil(isoFecha);
+
       if (!esFinde && !esFeriado) {
         diasContados++;
       } else {
         const razon = esFinde ? "Fin de semana" : "Inhábil/Feria";
         inhábilesEncontrados.push(`${fechaActual.toLocaleDateString('es-AR')} (${razon})`);
       }
-    } else { // Corridos
-      diasContados++;
-      if (esFinde || esFeriado) {
-        const razon = esFinde ? "Fin de semana" : "Inhábil/Feria";
-        inhábilesEncontrados.push(`${fechaActual.toLocaleDateString('es-AR')} (${razon})`);
+
+      if (diasContados < diasPlazo) {
+        fechaActual.setDate(fechaActual.getDate() + 1);
       }
     }
-
-    if (diasContados < diasPlazo) {
-      fechaActual.setDate(fechaActual.getDate() + 1);
-    }
-  }
-
-  // Prórroga al siguiente día hábil si vence en inhábil
-  if (tipoPlazo === "corridos") {
-    let ano = fechaActual.getFullYear();
-    let mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
-    let dia = String(fechaActual.getDate()).padStart(2, '0');
-    let isoFecha = `${ano}-${mes}-${dia}`;
-
-    while (fechaActual.getDay() === 0 || fechaActual.getDay() === 6 || esInhabil(isoFecha)) {
-      fechaActual.setDate(fechaActual.getDate() + 1);
-      ano = fechaActual.getFullYear();
-      mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
-      dia = String(fechaActual.getDate()).padStart(2, '0');
-      isoFecha = `${ano}-${mes}-${dia}`;
-    }
+  } else {
+    // DÍAS CORRIDOS ESTRICTOS: Suma exacta de días corridos sin omitir ni prorrogar por fin de semana ni feriados
+    fechaActual.setDate(fechaActual.getDate() + (diasPlazo - 1));
   }
 
   const opcionesFecha = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -108,7 +89,7 @@ function calcularVencimiento() {
 
   const divInhabiles = document.getElementById("txtInhabiles");
   if (divInhabiles) {
-    if (inhábilesEncontrados.length > 0) {
+    if (inhábilesEncontrados.length > 0 && tipoPlazo === "habiles") {
       divInhabiles.innerHTML = `<strong>Días no contados:</strong><br>` + inhábilesEncontrados.slice(0, 5).join("<br>") + (inhábilesEncontrados.length > 5 ? `<br>...y ${inhábilesEncontrados.length - 5} más.` : '');
       divInhabiles.classList.remove("hidden");
     } else {
@@ -116,7 +97,7 @@ function calcularVencimiento() {
     }
   }
 
-  // Guardar datos formateados
+  // Guardar objeto de cálculo actual
   const anoV = fechaActual.getFullYear();
   const mesV = String(fechaActual.getMonth() + 1).padStart(2, '0');
   const diaV = String(fechaActual.getDate()).padStart(2, '0');
@@ -134,7 +115,7 @@ function calcularVencimiento() {
   if (btnGuardar) btnGuardar.classList.remove("hidden");
 }
 
-// --- REGISTROS GUARDADOS ---
+// --- GESTIÓN Y RENDERIZADO DE REGISTROS GUARDADOS ---
 function guardarRegistro() {
   if (!ultCalculo) return;
 
@@ -174,10 +155,13 @@ function obtenerEstiloVencimiento(fechaVencISO) {
   const diasRestantes = Math.ceil(diferenciaMs / (1000 * 60 * 60 * 24));
 
   if (diasRestantes < 5) {
+    // Menos de 5 días o ya vencido -> ROJO
     return "bg-red-100 text-red-800 border-red-300 font-bold";
   } else if (diasRestantes <= 15) {
+    // De 5 a 15 días -> AMARILLO / NARANJA
     return "bg-amber-100 text-amber-800 border-amber-300 font-semibold";
   } else {
+    // Más de 15 días -> VERDE
     return "bg-emerald-100 text-emerald-800 border-emerald-300 font-medium";
   }
 }
@@ -223,7 +207,7 @@ function renderizarGuardados() {
   });
 }
 
-// --- MENÚ INHÁBILES ---
+// --- GESTIÓN DE DÍAS INHÁBILES ---
 function toggleMenuInhabiles() {
   const menu = document.getElementById("menuInhabiles");
   if (menu) {
@@ -269,7 +253,7 @@ function renderListaInhabiles() {
   });
 }
 
-// --- CARGA INICIAL Y SW ---
+// --- INICIALIZACIÓN Y SERVICE WORKER ---
 document.addEventListener("DOMContentLoaded", () => {
   renderizarGuardados();
 });
