@@ -1,4 +1,4 @@
-﻿// --- BASE DE DATOS Y CONFIGURACIÓN INICIAL ---
+﻿// --- CONFIGURACIÓN E INHÁBILES ---
 let inhábilesPersonalizados = JSON.parse(localStorage.getItem("inhabiles_misiones")) || [
   "2026-01-01", "2026-01-06", "2026-03-24", "2026-04-02", "2026-05-01", 
   "2026-05-25", "2026-06-20", "2026-07-09", "2026-11-20", "2026-12-25"
@@ -7,11 +7,11 @@ let inhábilesPersonalizados = JSON.parse(localStorage.getItem("inhabiles_mision
 let ultCalculo = null;
 let registrosGuardados = JSON.parse(localStorage.getItem("registros_plazos_misiones")) || [];
 
-// --- FUNCIONES DE CÁLCULO DE VENCIMIENTO ---
 function esInhabil(fechaISO) {
   return inhábilesPersonalizados.includes(fechaISO);
 }
 
+// --- CÁLCULO PRINCIPAL ---
 function calcularVencimiento() {
   const inputFecha = document.getElementById("fechaNotificacion").value;
   const diasPlazo = parseInt(document.getElementById("diasPlazo").value);
@@ -23,18 +23,21 @@ function calcularVencimiento() {
     return;
   }
 
-  // Parsear fecha evitando desfasaje de zona horaria
   const partes = inputFecha.split("-");
-  let fechaActual = new Date(partes[0], partes[1] - 1, partes[2]);
+  let fechaActual = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
 
   let diasContados = 0;
   let inhábilesEncontrados = [];
 
-  // El cómputo empieza al día siguiente de la notificación
+  // El plazo comienza el día hábil siguiente
   fechaActual.setDate(fechaActual.getDate() + 1);
 
   while (diasContados < diasPlazo) {
-    const isoFecha = fechaActual.toISOString().split("T")[0];
+    const ano = fechaActual.getFullYear();
+    const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
+    const dia = String(fechaActual.getDate()).padStart(2, '0');
+    const isoFecha = `${ano}-${mes}-${dia}`;
+
     const esFinde = fechaActual.getDay() === 0 || fechaActual.getDay() === 6;
     const esFeriado = esInhabil(isoFecha);
 
@@ -45,7 +48,7 @@ function calcularVencimiento() {
         const razon = esFinde ? "Fin de semana" : "Inhábil/Feria";
         inhábilesEncontrados.push(`${fechaActual.toLocaleDateString('es-AR')} (${razon})`);
       }
-    } else { // Días Corridos
+    } else { // Corridos
       diasContados++;
       if (esFinde || esFeriado) {
         const razon = esFinde ? "Fin de semana" : "Inhábil/Feria";
@@ -58,58 +61,72 @@ function calcularVencimiento() {
     }
   }
 
-  // Si el día de vencimiento de un plazo corrido cae en día inhábil, se prorroga al siguiente día hábil
+  // Prórroga al siguiente día hábil si vence en inhábil
   if (tipoPlazo === "corridos") {
-    let isoFecha = fechaActual.toISOString().split("T")[0];
+    let ano = fechaActual.getFullYear();
+    let mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
+    let dia = String(fechaActual.getDate()).padStart(2, '0');
+    let isoFecha = `${ano}-${mes}-${dia}`;
+
     while (fechaActual.getDay() === 0 || fechaActual.getDay() === 6 || esInhabil(isoFecha)) {
       fechaActual.setDate(fechaActual.getDate() + 1);
-      isoFecha = fechaActual.toISOString().split("T")[0];
+      ano = fechaActual.getFullYear();
+      mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
+      dia = String(fechaActual.getDate()).padStart(2, '0');
+      isoFecha = `${ano}-${mes}-${dia}`;
     }
   }
 
-  // Formatear resultados
   const opcionesFecha = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   const strVencimiento = fechaActual.toLocaleDateString('es-AR', opcionesFecha);
 
-  // Calcular Plazo de Gracia (Primeras 2 horas del día hábil posterior)
+  // Plazo de gracia (2 primeras horas del día hábil posterior)
   let fechaGracia = new Date(fechaActual);
   fechaGracia.setDate(fechaGracia.getDate() + 1);
-  let isoGracia = fechaGracia.toISOString().split("T")[0];
-  
+  let anoG = fechaGracia.getFullYear();
+  let mesG = String(fechaGracia.getMonth() + 1).padStart(2, '0');
+  let diaG = String(fechaGracia.getDate()).padStart(2, '0');
+  let isoGracia = `${anoG}-${mesG}-${diaG}`;
+
   while (fechaGracia.getDay() === 0 || fechaGracia.getDay() === 6 || esInhabil(isoGracia)) {
     fechaGracia.setDate(fechaGracia.getDate() + 1);
-    isoGracia = fechaGracia.toISOString().split("T")[0];
+    anoG = fechaGracia.getFullYear();
+    mesG = String(fechaGracia.getMonth() + 1).padStart(2, '0');
+    diaG = String(fechaGracia.getDate()).padStart(2, '0');
+    isoGracia = `${anoG}-${mesG}-${diaG}`;
   }
   const strGracia = fechaGracia.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'numeric' });
 
-  // Mostrar resultados en pantalla
-  document.getElementById("txtVencimiento").innerText = `Vence: ${strVencimiento}`;
-  document.getElementById("txtGracia").innerText = `⏰ Plazo de gracia (2 hs): ${strGracia} (primeras 2 hs de despacho)`;
-  document.getElementById("resultado").classList.remove("hidden");
+  // Renderizar resultados en pantalla
+  const txtVenc = document.getElementById("txtVencimiento");
+  const txtGra = document.getElementById("txtGracia");
+  const pnlRes = document.getElementById("resultado");
 
-  // Mostrar detalle de días no contados
+  if (txtVenc) txtVenc.innerText = `Vence: ${strVencimiento}`;
+  if (txtGra) txtGra.innerText = `⏰ Plazo de gracia (2 hs): ${strGracia} (primeras 2 hs de despacho)`;
+  if (pnlRes) pnlRes.classList.remove("hidden");
+
   const divInhabiles = document.getElementById("txtInhabiles");
   if (divInhabiles) {
     if (inhábilesEncontrados.length > 0) {
-      divInhabiles.innerHTML = `<strong>Días no contados/intermedios:</strong><br>` + inhábilesEncontrados.slice(0, 5).join("<br>") + (inhábilesEncontrados.length > 5 ? `<br>...y ${inhábilesEncontrados.length - 5} más.` : '');
+      divInhabiles.innerHTML = `<strong>Días no contados:</strong><br>` + inhábilesEncontrados.slice(0, 5).join("<br>") + (inhábilesEncontrados.length > 5 ? `<br>...y ${inhábilesEncontrados.length - 5} más.` : '');
       divInhabiles.classList.remove("hidden");
     } else {
       divInhabiles.classList.add("hidden");
     }
   }
 
-  // Guardar la fecha exacta de vencimiento para comparar correctamente
-  const ano = fechaActual.getFullYear();
-  const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
-  const dia = String(fechaActual.getDate()).padStart(2, '0');
-  const fechaVencISO = `${ano}-${mes}-${dia}`;
+  // Guardar datos formateados
+  const anoV = fechaActual.getFullYear();
+  const mesV = String(fechaActual.getMonth() + 1).padStart(2, '0');
+  const diaV = String(fechaActual.getDate()).padStart(2, '0');
 
   ultCalculo = {
     persona: persona || "Sin especificar",
     fechaNotif: `${partes[2]}/${partes[1]}/${partes[0]}`,
     dias: `${diasPlazo} (${tipoPlazo === 'habiles' ? 'Hábiles' : 'Corridos'})`,
     vencimiento: strVencimiento,
-    fechaVencimientoISO: fechaVencISO,
+    fechaVencimientoISO: `${anoV}-${mesV}-${diaV}`,
     gracia: strGracia
   };
 
@@ -117,7 +134,7 @@ function calcularVencimiento() {
   if (btnGuardar) btnGuardar.classList.remove("hidden");
 }
 
-// --- GESTIÓN Y RENDERIZADO DE REGISTROS GUARDADOS ---
+// --- REGISTROS GUARDADOS ---
 function guardarRegistro() {
   if (!ultCalculo) return;
 
@@ -141,19 +158,14 @@ function eliminarRegistro(id) {
   }
 }
 
-// Determinar el estilo según la diferencia de días
 function obtenerEstiloVencimiento(fechaVencISO) {
-  if (!fechaVencISO) {
-    return "bg-slate-100 text-slate-800 border-slate-300";
-  }
+  if (!fechaVencISO) return "bg-slate-100 text-slate-800 border-slate-300";
 
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
   const partes = fechaVencISO.split("-");
-  if (partes.length !== 3) {
-    return "bg-slate-100 text-slate-800 border-slate-300";
-  }
+  if (partes.length !== 3) return "bg-slate-100 text-slate-800 border-slate-300";
 
   const venc = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
   venc.setHours(0, 0, 0, 0);
@@ -162,13 +174,10 @@ function obtenerEstiloVencimiento(fechaVencISO) {
   const diasRestantes = Math.ceil(diferenciaMs / (1000 * 60 * 60 * 24));
 
   if (diasRestantes < 5) {
-    // Menos de 5 días o ya vencido -> ROJO
     return "bg-red-100 text-red-800 border-red-300 font-bold";
-  } else if (diasRestantes >= 5 && diasRestantes <= 15) {
-    // De 5 a 15 días -> AMARILLO / NARANJA
+  } else if (diasRestantes <= 15) {
     return "bg-amber-100 text-amber-800 border-amber-300 font-semibold";
   } else {
-    // Más de 15 días -> VERDE
     return "bg-emerald-100 text-emerald-800 border-emerald-300 font-medium";
   }
 }
@@ -214,7 +223,7 @@ function renderizarGuardados() {
   });
 }
 
-// --- GESTIÓN DE CALENDARIO INHÁBIL ---
+// --- MENÚ INHÁBILES ---
 function toggleMenuInhabiles() {
   const menu = document.getElementById("menuInhabiles");
   if (menu) {
@@ -260,7 +269,7 @@ function renderListaInhabiles() {
   });
 }
 
-// --- INICIALIZACIÓN ---
+// --- CARGA INICIAL Y SW ---
 document.addEventListener("DOMContentLoaded", () => {
   renderizarGuardados();
 });
