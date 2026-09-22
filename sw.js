@@ -1,4 +1,4 @@
-const CACHE_NAME = "plazos-misiones-v5";
+const CACHE_NAME = "plazos-misiones-v6";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
